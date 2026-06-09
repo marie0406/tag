@@ -3,10 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 
-st.set_page_config(
-    page_title=" ",
-    layout="wide"
-)
+st.set_page_config(page_title="まちタグ")
 
 # フォルダ作成
 os.makedirs("uploads", exist_ok=True)
@@ -20,241 +17,148 @@ if not os.path.exists("posts.csv"):
             "コメント",
             "写真"
         ]
-    ).to_csv(
+    ).to_csv("posts.csv", index=False)
+
+st.title("📸 まちタグ")
+st.write("タグを選んで写真を共有")
+
+# 投稿フォーム
+
+uploaded_file = st.file_uploader(
+    "写真を選択",
+    type=["jpg", "jpeg", "png"]
+)
+
+tag = st.selectbox(
+    "タグ",
+    [
+        "道路点検",
+        "街灯故障",
+        "不法投棄",
+        "防災",
+        "公園",
+        "イベント",
+        "その他"
+    ]
+)
+
+comment = st.text_area("コメント")
+
+if st.button("投稿する"):
+
+    photo_name = ""
+
+    if uploaded_file is not None:
+
+        photo_name = (
+            datetime.now().strftime("%Y%m%d%H%M%S")
+            + "_"
+            + uploaded_file.name
+        )
+
+        with open(
+            os.path.join("uploads", photo_name),
+            "wb"
+        ) as f:
+            f.write(uploaded_file.getbuffer())
+
+    new_post = pd.DataFrame([
+        {
+            "日時": datetime.now(),
+            "タグ": tag,
+            "コメント": comment,
+            "写真": photo_name
+        }
+    ])
+
+    try:
+        old_posts = pd.read_csv("posts.csv")
+    except:
+        old_posts = pd.DataFrame(
+            columns=[
+                "日時",
+                "タグ",
+                "コメント",
+                "写真"
+            ]
+        )
+
+    all_posts = pd.concat(
+        [old_posts, new_post],
+        ignore_index=True
+    )
+
+    all_posts.to_csv(
         "posts.csv",
         index=False
     )
 
-# サイドメニュー
-menu = st.sidebar.radio(
-    "メニュー",
-    [
-        "ホーム",
-        "新規投稿"
-    ]
-)
+    st.success("投稿しました")
+    st.rerun()
 
-# ====================
-# ホーム
-# ====================
+# 投稿一覧
 
-if menu == "ホーム":
+st.divider()
+st.header("📋投稿一覧")
 
-    st.title("📸 ")
+# ⭐追加：タグフィルター
+all_tags = ["すべて"] + [
+    "道路点検",
+    "街灯故障",
+    "不法投棄",
+    "防災",
+    "公園",
+    "イベント",
+    "その他"
+]
 
-    st.write(
-        "タグを選んで写真を共有するアプリ"
-    )
+selected_tag = st.selectbox("表示するタグを選択", all_tags)
 
-    try:
-        posts = pd.read_csv("posts.csv")
-    except:
-        posts = pd.DataFrame()
+try:
+    posts = pd.read_csv("posts.csv")
+except:
+    posts = pd.DataFrame()
 
-    st.header("📂 タグ一覧")
+# ⭐追加：タグで絞り込み
+if not posts.empty:
+    if selected_tag != "すべて":
+        posts = posts[posts["タグ"] == selected_tag]
 
-    if not posts.empty:
+if not posts.empty:
 
-        tag_counts = posts["タグ"].value_counts()
+    for index, row in posts.iloc[::-1].iterrows():
 
-        for tag, count in tag_counts.items():
+        st.subheader(f"#{row['タグ']}")
 
-            st.write(
-                f"#{tag} （{count}件）"
-            )
+        if pd.notna(row["コメント"]):
+            st.write(row["コメント"])
 
-    else:
+        st.caption(row["日時"])
 
-        st.info(
-            "まだ投稿がありません"
-        )
-
-    st.divider()
-
-    st.header("🖼 最近の投稿")
-
-    if not posts.empty:
-
-        recent_posts = posts.iloc[::-1].head(5)
-
-        cols = st.columns(3)
-
-        for i, (_, row) in enumerate(
-            recent_posts.iterrows()
+        if (
+            pd.notna(row["写真"])
+            and row["写真"] != ""
         ):
 
-            with cols[i % 3]:
-
-                st.subheader(
-                    f"#{row['タグ']}"
-                )
-
-                if (
-                    pd.notna(row["写真"])
-                    and row["写真"] != ""
-                ):
-
-                    image_path = os.path.join(
-                        "uploads",
-                        row["写真"]
-                    )
-
-                    if os.path.exists(
-                        image_path
-                    ):
-
-                        st.image(
-                            image_path,
-                            use_container_width=True
-                        )
-
-                st.caption(
-                    row["日時"]
-                )
-
-# ====================
-# 新規投稿
-# ====================
-
-if menu == "新規投稿":
-
-    st.title("📷 新規投稿")
-
-    uploaded_file = st.file_uploader(
-        "写真を選択",
-        type=[
-            "jpg",
-            "jpeg",
-            "png"
-        ]
-    )
-
-    tag = st.selectbox(
-        "タグ",
-        [
-            "道路点検",
-            "街灯故障",
-            "不法投棄",
-            "防災",
-            "公園",
-            "イベント",
-            "その他"
-        ]
-    )
-
-    comment = st.text_area(
-        "コメント"
-    )
-
-    if st.button("投稿する"):
-
-        photo_name = ""
-
-        if uploaded_file is not None:
-
-            photo_name = (
-                datetime.now().strftime(
-                    "%Y%m%d%H%M%S"
-                )
-                + "_"
-                + uploaded_file.name
+            image_path = os.path.join(
+                "uploads",
+                row["写真"]
             )
 
-            with open(
-                os.path.join(
-                    "uploads",
-                    photo_name
-                ),
-                "wb"
-            ) as f:
-
-                f.write(
-                    uploaded_file.getbuffer()
+            if os.path.exists(image_path):
+                st.image(
+                    image_path,
+                    width=300
                 )
 
-        new_post = pd.DataFrame([
-            {
-                "日時": datetime.now(),
-                "タグ": tag,
-                "コメント": comment,
-                "写真": photo_name
-            }
-        ])
+        if st.button(
+            "削除",
+            key=f"delete_{index}"
+        ):
 
-        try:
-
-            old_posts = pd.read_csv(
-                "posts.csv"
-            )
-
-        except:
-
-            old_posts = pd.DataFrame(
-                columns=[
-                    "日時",
-                    "タグ",
-                    "コメント",
-                    "写真"
-                ]
-            )
-
-        all_posts = pd.concat(
-            [
-                old_posts,
-                new_post
-            ],
-            ignore_index=True
-        )
-
-        all_posts.to_csv(
-            "posts.csv",
-            index=False
-        )
-
-        st.success(
-            "投稿しました"
-        )
-
-        st.rerun()
-
-    st.divider()
-
-    st.header("📋 投稿一覧")
-
-    try:
-
-        posts = pd.read_csv(
-            "posts.csv"
-        )
-
-    except:
-
-        posts = pd.DataFrame()
-
-    if not posts.empty:
-
-        for index, row in posts.iloc[::-1].iterrows():
-
-            st.subheader(
-                f"#{row['タグ']}"
-            )
-
-            if pd.notna(
-                row["コメント"]
-            ):
-
-                st.write(
-                    row["コメント"]
-                )
-
-            st.caption(
-                row["日時"]
-            )
-
+            # 写真削除
             if (
-                pd.notna(
-                    row["写真"]
-                )
+                pd.notna(row["写真"])
                 and row["写真"] != ""
             ):
 
@@ -263,55 +167,19 @@ if menu == "新規投稿":
                     row["写真"]
                 )
 
-                if os.path.exists(
-                    image_path
-                ):
+                if os.path.exists(image_path):
+                    os.remove(image_path)
 
-                    st.image(
-                        image_path,
-                        width=300
-                    )
+            posts = posts.drop(index)
 
-            if st.button(
-                "🗑 削除",
-                key=f"delete_{index}"
-            ):
+            posts.to_csv(
+                "posts.csv",
+                index=False
+            )
 
-                if (
-                    pd.notna(
-                        row["写真"]
-                    )
-                    and row["写真"] != ""
-                ):
+            st.rerun()
 
-                    image_path = os.path.join(
-                        "uploads",
-                        row["写真"]
-                    )
+        st.divider()
 
-                    if os.path.exists(
-                        image_path
-                    ):
-
-                        os.remove(
-                            image_path
-                        )
-
-                posts = posts.drop(
-                    index
-                )
-
-                posts.to_csv(
-                    "posts.csv",
-                    index=False
-                )
-
-                st.rerun()
-
-            st.divider()
-
-    else:
-
-        st.info(
-            "投稿はまだありません"
-        )
+else:
+    st.info("投稿はまだありません")
