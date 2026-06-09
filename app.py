@@ -40,7 +40,7 @@ menu = st.sidebar.radio(
 
 if menu == "ホーム":
 
-    st.title("📸 まちタグ")
+    st.title("📸 ")
 
     st.write(
         "タグを選んで写真を共有するアプリ"
